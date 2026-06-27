@@ -54,7 +54,7 @@
               <input id="income" type="number" min="0" step="0.01" value="0" class="w-full mt-1 rounded-xl p-3 bg-slate-100 dark:bg-slate-700" />
             </label>
             <label class="block">
-              <span class="text-sm">Расход, ₽</span>
+              <span class="text-sm">Расход (прочее), ₽</span>
               <input id="expense" type="number" min="0" step="0.01" value="0" class="w-full mt-1 rounded-xl p-3 bg-slate-100 dark:bg-slate-700" />
             </label>
           </div>
@@ -120,7 +120,7 @@
                 <th class="py-2">Дата</th>
                 <th class="py-2">Водитель</th>
                 <th class="py-2">Доход</th>
-                <th class="py-2">Расход</th>
+                <th class="py-2">Расход (прочее)</th>
                 <th class="py-2">Км</th>
                 <th class="py-2">Бензин (л/₽)</th>
               </tr>
@@ -195,19 +195,24 @@
         const totals = entries.reduce(
           (acc, item) => {
             acc.income += asNumber(item.income);
-            acc.expense += asNumber(item.expense);
+            const expense = asNumber(item.expense);
+            const fuelRubles = asNumber(item.fuelRubles);
+            const income = asNumber(item.income);
+            acc.expense += expense;
             acc.mileage += asNumber(item.mileage);
             acc.fuelLiters += asNumber(item.fuelLiters);
-            acc.fuelRubles += asNumber(item.fuelRubles);
+            acc.fuelRubles += fuelRubles;
             if (item.driverType === "hired") {
-              acc.driverEarnings += (asNumber(item.income) - asNumber(item.expense) - asNumber(item.fuelRubles)) * HIRE_DRIVER_SHARE;
+              const totalCost = expense + fuelRubles;
+              acc.driverEarnings += (income - totalCost) * HIRE_DRIVER_SHARE;
             }
             return acc;
           },
           { income: 0, expense: 0, mileage: 0, fuelLiters: 0, fuelRubles: 0, driverEarnings: 0 }
         );
 
-        const netProfit = totals.income - totals.expense - totals.fuelRubles;
+        const totalCost = totals.expense + totals.fuelRubles;
+        const netProfit = totals.income - totalCost;
         const fuelPer100 = totals.mileage > 0 ? (totals.fuelLiters / totals.mileage) * 100 : 0;
 
         return { netProfit, fuelPer100, driverEarnings: totals.driverEarnings };
@@ -266,7 +271,7 @@
           Водитель: e.driverType === "owner" ? "Владелец" : "Наемный",
           Смена: e.shift,
           Доход: asNumber(e.income),
-          Расход: asNumber(e.expense),
+          "Расход (прочее)": asNumber(e.expense),
           Километраж: asNumber(e.mileage),
           "Бензин (л)": asNumber(e.fuelLiters),
           "Бензин (₽)": asNumber(e.fuelRubles),
