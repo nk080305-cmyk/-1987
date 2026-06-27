@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Учет Газели</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              brand: "#22c55e",
+            },
+          },
+        },
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  </head>
+  <body class="bg-slate-100 text-slate-900 dark bg-slate-900 dark:text-slate-100 min-h-screen">
+    <main class="max-w-3xl mx-auto p-4 sm:p-6 space-y-5">
+      <header class="flex items-center justify-between">
+        <h1 class="text-2xl sm:text-3xl font-bold">Учет Газели</h1>
+        <button
+          id="themeToggle"
+          class="rounded-xl px-4 py-3 text-base font-semibold bg-slate-200 dark:bg-slate-800"
+        >
+          Тема
+        </button>
+      </header>
+
+      <section class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 shadow">
+        <h2 class="text-xl font-semibold mb-4">Новая запись</h2>
+        <form id="entryForm" class="space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block">
+              <span class="text-sm">Дата</span>
+              <input id="date" type="date" required class="w-full mt-1 rounded-xl p-3 bg-slate-100 dark:bg-slate-700" />
+            </label>
+            <label class="block">
+              <span class="text-sm">Водитель</span>
+              <select id="driverType" class="w-full mt-1 rounded-xl p-3 bg-slate-100 dark:bg-slate-700">
+                <option value="owner">Владелец</option>
+                <option value="hired">Наемный</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block">
+              <span class="text-sm">Доход, ₽</span>
+              <input id="income" type="number" min="0" step="0.01" value="0" class="w-full mt-1 rounded-xl p-3 bg-slate-100 dark:bg-slate-700" />
+            </label>
+            <label class="block">
+              <span class="text-sm">Расход, ₽</span>
+              <input id="expense" type="number" min="0" step="0.01" value="0" class="w-full mt-1 rounded-xl p-3 bg-slate-100 dark:bg-slate-700" />
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="block">
+              <span class="text-sm">Километраж, км</span>
+              <input id="mileage" type="number" min="0" step="0.1" value="0" class="w-full mt-1 rounded-xl p-3 bg-slate-100 dark:bg-slate-700" />
+            </label>
+            <label class="block">
+              <span class="text-sm">Бензин, л</span>
+              <input id="fuelLiters" type="number" min="0" step="0.01" value="0" class="w-full mt-1 rounded-xl p-3 bg-slate-100 dark:bg-slate-700" />
+            </label>
+            <label class="block">
+              <span class="text-sm">Бензин, ₽</span>
+              <input id="fuelRubles" type="number" min="0" step="0.01" value="0" class="w-full mt-1 rounded-xl p-3 bg-slate-100 dark:bg-slate-700" />
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            class="w-full sm:w-auto rounded-xl px-5 py-3 bg-brand text-white text-lg font-semibold"
+          >
+            Сохранить запись
+          </button>
+        </form>
+      </section>
+
+      <section class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 shadow space-y-3">
+        <h2 class="text-xl font-semibold">Смены (2/2)</h2>
+        <p id="shiftInfo" class="text-sm text-slate-600 dark:text-slate-300"></p>
+      </section>
+
+      <section class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 shadow space-y-3">
+        <h2 class="text-xl font-semibold">Аналитика</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-base">
+          <div class="rounded-xl p-3 bg-slate-100 dark:bg-slate-700">
+            <p class="text-sm opacity-75">Расход на 100 км</p>
+            <p id="fuelPer100" class="text-lg font-semibold">0 л</p>
+          </div>
+          <div class="rounded-xl p-3 bg-slate-100 dark:bg-slate-700">
+            <p class="text-sm opacity-75">Чистая прибыль</p>
+            <p id="netProfit" class="text-lg font-semibold">0 ₽</p>
+          </div>
+          <div class="rounded-xl p-3 bg-slate-100 dark:bg-slate-700">
+            <p class="text-sm opacity-75">Заработок водителя</p>
+            <p id="driverEarnings" class="text-lg font-semibold">0 ₽</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-5 shadow">
+        <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-3">
+          <h2 class="text-xl font-semibold">Записи</h2>
+          <button id="exportBtn" class="rounded-xl px-5 py-3 bg-blue-600 text-white text-lg font-semibold">
+            Экспорт в Excel
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left border-b border-slate-300 dark:border-slate-600">
+                <th class="py-2">Дата</th>
+                <th class="py-2">Водитель</th>
+                <th class="py-2">Доход</th>
+                <th class="py-2">Расход</th>
+                <th class="py-2">Км</th>
+                <th class="py-2">Бензин (л/₽)</th>
+              </tr>
+            </thead>
+            <tbody id="entriesBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const STORAGE_KEY = "gazelleEntries";
+      const THEME_KEY = "gazelleTheme";
+      const SHIFT_START = new Date("2026-01-01");
+      const HIRE_DRIVER_SHARE = 0.4;
+
+      const refs = {
+        form: document.getElementById("entryForm"),
+        date: document.getElementById("date"),
+        driverType: document.getElementById("driverType"),
+        income: document.getElementById("income"),
+        expense: document.getElementById("expense"),
+        mileage: document.getElementById("mileage"),
+        fuelLiters: document.getElementById("fuelLiters"),
+        fuelRubles: document.getElementById("fuelRubles"),
+        entriesBody: document.getElementById("entriesBody"),
+        fuelPer100: document.getElementById("fuelPer100"),
+        netProfit: document.getElementById("netProfit"),
+        driverEarnings: document.getElementById("driverEarnings"),
+        shiftInfo: document.getElementById("shiftInfo"),
+        exportBtn: document.getElementById("exportBtn"),
+        themeToggle: document.getElementById("themeToggle"),
+      };
+
+      const today = new Date().toISOString().slice(0, 10);
+      refs.date.value = today;
+
+      function asNumber(value) {
+        const num = Number(value);
+        return Number.isFinite(num) ? num : 0;
+      }
+
+      function getEntries() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveEntries(entries) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+      }
+
+      function money(v) {
+        return `${v.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} ₽`;
+      }
+
+      function getShiftInfo(dateString) {
+        const currentDate = new Date(dateString);
+        const oneDay = 24 * 60 * 60 * 1000;
+        const dayDiff = Math.floor((currentDate - SHIFT_START) / oneDay);
+        const inWorkBlock = ((dayDiff % 4) + 4) % 4 < 2;
+        return inWorkBlock ? "Рабочая смена" : "Выходной";
+      }
+
+      function renderShiftPreview() {
+        refs.shiftInfo.textContent = `${refs.date.value}: ${getShiftInfo(refs.date.value)}`;
+      }
+
+      function calculate(entries) {
+        const totals = entries.reduce(
+          (acc, item) => {
+            acc.income += asNumber(item.income);
+            acc.expense += asNumber(item.expense);
+            acc.mileage += asNumber(item.mileage);
+            acc.fuelLiters += asNumber(item.fuelLiters);
+            acc.fuelRubles += asNumber(item.fuelRubles);
+            if (item.driverType === "hired") {
+              acc.driverEarnings += (asNumber(item.income) - asNumber(item.expense) - asNumber(item.fuelRubles)) * HIRE_DRIVER_SHARE;
+            }
+            return acc;
+          },
+          { income: 0, expense: 0, mileage: 0, fuelLiters: 0, fuelRubles: 0, driverEarnings: 0 }
+        );
+
+        const netProfit = totals.income - totals.expense - totals.fuelRubles;
+        const fuelPer100 = totals.mileage > 0 ? (totals.fuelLiters / totals.mileage) * 100 : 0;
+
+        return { netProfit, fuelPer100, driverEarnings: totals.driverEarnings };
+      }
+
+      function render() {
+        const entries = getEntries().sort((a, b) => (a.date < b.date ? 1 : -1));
+        refs.entriesBody.innerHTML = entries
+          .map(
+            (e) => `
+              <tr class="border-b border-slate-200 dark:border-slate-700">
+                <td class="py-2 pr-2">${e.date}</td>
+                <td class="py-2 pr-2">${e.driverType === "owner" ? "Владелец" : "Наемный"}</td>
+                <td class="py-2 pr-2">${money(asNumber(e.income))}</td>
+                <td class="py-2 pr-2">${money(asNumber(e.expense))}</td>
+                <td class="py-2 pr-2">${asNumber(e.mileage).toLocaleString("ru-RU")}</td>
+                <td class="py-2 pr-2">${asNumber(e.fuelLiters).toLocaleString("ru-RU")} / ${money(asNumber(e.fuelRubles))}</td>
+              </tr>
+            `
+          )
+          .join("");
+
+        const stats = calculate(entries);
+        refs.fuelPer100.textContent = `${stats.fuelPer100.toLocaleString("ru-RU", { maximumFractionDigits: 2 })} л`;
+        refs.netProfit.textContent = money(stats.netProfit);
+        refs.driverEarnings.textContent = money(stats.driverEarnings);
+      }
+
+      refs.form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const entries = getEntries();
+        entries.push({
+          date: refs.date.value,
+          driverType: refs.driverType.value,
+          income: asNumber(refs.income.value),
+          expense: asNumber(refs.expense.value),
+          mileage: asNumber(refs.mileage.value),
+          fuelLiters: asNumber(refs.fuelLiters.value),
+          fuelRubles: asNumber(refs.fuelRubles.value),
+          shift: getShiftInfo(refs.date.value),
+        });
+        saveEntries(entries);
+        refs.form.reset();
+        refs.date.value = today;
+        refs.driverType.value = "owner";
+        renderShiftPreview();
+        render();
+      });
+
+      refs.date.addEventListener("change", renderShiftPreview);
+
+      refs.exportBtn.addEventListener("click", () => {
+        const entries = getEntries();
+        const exportRows = entries.map((e) => ({
+          Дата: e.date,
+          Водитель: e.driverType === "owner" ? "Владелец" : "Наемный",
+          Смена: e.shift,
+          Доход: asNumber(e.income),
+          Расход: asNumber(e.expense),
+          Километраж: asNumber(e.mileage),
+          "Бензин (л)": asNumber(e.fuelLiters),
+          "Бензин (₽)": asNumber(e.fuelRubles),
+        }));
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(exportRows);
+        XLSX.utils.book_append_sheet(wb, ws, "Учет");
+        XLSX.writeFile(wb, "gazelle-accounting.xlsx");
+      });
+
+      refs.themeToggle.addEventListener("click", () => {
+        document.documentElement.classList.toggle("dark");
+        const isDark = document.documentElement.classList.contains("dark");
+        localStorage.setItem(THEME_KEY, isDark ? "dark" : "light");
+      });
+
+      const savedTheme = localStorage.getItem(THEME_KEY);
+      if (savedTheme === "light") {
+        document.documentElement.classList.remove("dark");
+      } else {
+        document.documentElement.classList.add("dark");
+      }
+
+      renderShiftPreview();
+      render();
+    </script>
+  </body>
+</html>
