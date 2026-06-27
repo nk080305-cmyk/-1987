@@ -194,10 +194,10 @@
       function calculate(entries) {
         const totals = entries.reduce(
           (acc, item) => {
-            acc.income += asNumber(item.income);
+            const income = asNumber(item.income);
+            acc.income += income;
             const expense = asNumber(item.expense);
             const fuelRubles = asNumber(item.fuelRubles);
-            const income = asNumber(item.income);
             acc.expense += expense;
             acc.mileage += asNumber(item.mileage);
             acc.fuelLiters += asNumber(item.fuelLiters);
@@ -212,7 +212,7 @@
         );
 
         const totalCost = totals.expense + totals.fuelRubles;
-        const netProfit = totals.income - totalCost;
+        const netProfit = totals.income - totalCost - totals.driverEarnings;
         const fuelPer100 = totals.mileage > 0 ? (totals.fuelLiters / totals.mileage) * 100 : 0;
 
         return { netProfit, fuelPer100, driverEarnings: totals.driverEarnings };
