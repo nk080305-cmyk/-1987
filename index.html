@@ -142,17 +142,30 @@
                 </label>
               </div>
 
-              <label class="block">
-                <span class="mb-2 block text-sm font-medium text-slate-200">Бензин, ₽</span>
-                <input
-                  name="fuelCost"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value="0"
-                  class="min-h-14 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 text-base text-slate-100 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20"
-                />
-              </label>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <label class="block">
+                  <span class="mb-2 block text-sm font-medium text-slate-200">Бензин, ₽</span>
+                  <input
+                    name="fuelCost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value="0"
+                    class="min-h-14 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 text-base text-slate-100 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20"
+                  />
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm font-medium text-slate-200">Запчасти, ₽</span>
+                  <input
+                    name="spareParts"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value="0"
+                    class="min-h-14 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 text-base text-slate-100 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-400/20"
+                  />
+                </label>
+              </div>
 
               <button
                 type="submit"
@@ -294,6 +307,7 @@
             mileage: toNumber(formData.get("mileage")),
             fuelLiters: toNumber(formData.get("fuelLiters")),
             fuelCost: toNumber(formData.get("fuelCost")),
+            spareParts: toNumber(formData.get("spareParts")),
           };
 
           state.records.unshift(record);
@@ -343,12 +357,13 @@
       function renderAnalytics() {
         const totals = state.records.reduce(
           (accumulator, record) => {
-            const profit = record.income - record.expense - record.fuelCost;
+            const profit = record.income - record.expense - record.fuelCost - (record.spareParts || 0);
             accumulator.income += record.income;
             accumulator.expense += record.expense;
             accumulator.mileage += record.mileage;
             accumulator.fuelLiters += record.fuelLiters;
             accumulator.fuelCost += record.fuelCost;
+            accumulator.spareParts += record.spareParts || 0;
             accumulator.netProfit += profit;
             if (record.driver === "owner") {
               accumulator.ownerEarnings += profit;
@@ -363,6 +378,7 @@
             mileage: 0,
             fuelLiters: 0,
             fuelCost: 0,
+            spareParts: 0,
             netProfit: 0,
             ownerEarnings: 0,
             hiredEarnings: 0,
@@ -391,7 +407,7 @@
         recordsContainer.innerHTML = state.records
           .map((record) => {
             const shiftInfo = getShiftInfo(record.date);
-            const profit = record.income - record.expense - record.fuelCost;
+            const profit = record.income - record.expense - record.fuelCost - (record.spareParts || 0);
             const formattedDate = escapeHtml(formatDate(record.date));
             const driverLabel = escapeHtml(record.driver === "owner" ? "Владелец" : "Наемный");
             const shiftLabel = escapeHtml(shiftInfo.label);
@@ -416,6 +432,7 @@
                       <p>Расход: <span class="font-semibold text-slate-100">${currencyFormatter.format(record.expense)}</span></p>
                       <p>Пробег: <span class="font-semibold text-slate-100">${numberFormatter.format(record.mileage)} км</span></p>
                       <p>Бензин: <span class="font-semibold text-slate-100">${numberFormatter.format(record.fuelLiters)} л / ${currencyFormatter.format(record.fuelCost)}</span></p>
+                      <p>Запчасти: <span class="font-semibold text-slate-100">${currencyFormatter.format(record.spareParts || 0)}</span></p>
                       <p class="sm:col-span-2">Чистая прибыль: <span class="font-semibold ${profitClass}">${currencyFormatter.format(profit)}</span></p>
                     </div>
                   </div>
@@ -441,10 +458,11 @@
             accumulator.mileage += record.mileage;
             accumulator.fuelLiters += record.fuelLiters;
             accumulator.fuelCost += record.fuelCost;
-            accumulator.netProfit += record.income - record.expense - record.fuelCost;
+            accumulator.spareParts += record.spareParts || 0;
+            accumulator.netProfit += record.income - record.expense - record.fuelCost - (record.spareParts || 0);
             return accumulator;
           },
-          { income: 0, expense: 0, mileage: 0, fuelLiters: 0, fuelCost: 0, netProfit: 0 }
+          { income: 0, expense: 0, mileage: 0, fuelLiters: 0, fuelCost: 0, spareParts: 0, netProfit: 0 }
         );
 
         const fuelPer100 = totals.mileage > 0 ? ((totals.fuelLiters / totals.mileage) * 100).toFixed(1) : "0";
@@ -461,7 +479,8 @@
                 <td>${record.mileage}</td>
                 <td>${record.fuelLiters}</td>
                 <td>${record.fuelCost}</td>
-                <td>${record.income - record.expense - record.fuelCost}</td>
+                <td>${record.spareParts || 0}</td>
+                <td>${record.income - record.expense - record.fuelCost - (record.spareParts || 0)}</td>
               </tr>
             `;
           })
@@ -479,6 +498,7 @@
                 <tr><td>Доход</td><td>${totals.income}</td></tr>
                 <tr><td>Расход</td><td>${totals.expense}</td></tr>
                 <tr><td>Бензин, ₽</td><td>${totals.fuelCost}</td></tr>
+                <tr><td>Запчасти, ₽</td><td>${totals.spareParts}</td></tr>
                 <tr><td>Чистая прибыль</td><td>${totals.netProfit}</td></tr>
                 <tr><td>Расход на 100 км</td><td>${fuelPer100}</td></tr>
               </table>
@@ -493,6 +513,7 @@
                   <th>Километраж</th>
                   <th>Бензин, л</th>
                   <th>Бензин, ₽</th>
+                  <th>Запчасти, ₽</th>
                   <th>Чистая прибыль</th>
                 </tr>
                 ${rows}
