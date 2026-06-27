@@ -5,20 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#020617" />
     <title>Учет Газели</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              surface: "#0f172a",
-              panel: "#111827",
-              accent: "#38bdf8",
-            },
-          },
-        },
-      };
-    </script>
+    <link rel="stylesheet" href="./styles.css" />
   </head>
   <body class="min-h-screen bg-slate-950 text-slate-100">
     <div class="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
@@ -553,12 +540,8 @@
       }
 
       function formatDate(value) {
-        const parts = String(value).split("-");
-        if (parts.length !== 3) {
-          return escapeHtml(String(value));
-        }
-        const [year, month, day] = parts.map(Number);
-        if (![year, month, day].every(Number.isFinite)) {
+        const parsedDate = parseDateParts(value);
+        if (!parsedDate) {
           return escapeHtml(String(value));
         }
         return new Intl.DateTimeFormat("ru-RU", {
@@ -566,7 +549,7 @@
           day: "2-digit",
           month: "2-digit",
           year: "numeric",
-        }).format(new Date(Date.UTC(year, month - 1, day)));
+        }).format(new Date(Date.UTC(parsedDate.year, parsedDate.month - 1, parsedDate.day)));
       }
 
       function pluralize(count, forms) {
@@ -591,24 +574,51 @@
       }
 
       function toUtcDayNumber(dateString) {
-        const parts = String(dateString).split("-");
-        if (parts.length !== 3) {
+        const parsedDate = parseDateParts(dateString);
+        if (!parsedDate) {
           return getTodayUtcDayNumber();
         }
-        const [year, month, day] = parts.map(Number);
-        if (![year, month, day].every(Number.isFinite)) {
-          return getTodayUtcDayNumber();
-        }
-        return Math.floor(Date.UTC(year, month - 1, day) / MS_PER_DAY);
+        return Math.floor(Date.UTC(parsedDate.year, parsedDate.month - 1, parsedDate.day) / MS_PER_DAY);
       }
 
       function getTodayIsoDate() {
-        return new Date().toISOString().slice(0, 10);
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, "0");
+        const day = String(today.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
       }
 
       function getTodayUtcDayNumber() {
         const today = new Date();
         return Math.floor(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) / MS_PER_DAY);
+      }
+
+      function parseDateParts(value) {
+        const parts = String(value).split("-");
+        if (parts.length !== 3) {
+          return null;
+        }
+
+        const [year, month, day] = parts.map(Number);
+        if (![year, month, day].every(Number.isFinite)) {
+          return null;
+        }
+
+        if (month < 1 || month > 12 || day < 1 || day > 31) {
+          return null;
+        }
+
+        const candidate = new Date(Date.UTC(year, month - 1, day));
+        if (
+          candidate.getUTCFullYear() !== year ||
+          candidate.getUTCMonth() !== month - 1 ||
+          candidate.getUTCDate() !== day
+        ) {
+          return null;
+        }
+
+        return { year, month, day };
       }
     </script>
   </body>
