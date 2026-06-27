@@ -219,6 +219,13 @@
     <script>
       const STORAGE_KEY = "gazelle-accounting-v1";
       const MS_PER_DAY = 24 * 60 * 60 * 1000;
+      const CURRENCY_CODE = "RUB";
+      const SHIFT_LABELS = [
+        { label: "Рабочая смена · день 1", isWorkday: true },
+        { label: "Рабочая смена · день 2", isWorkday: true },
+        { label: "Выходной · день 1", isWorkday: false },
+        { label: "Выходной · день 2", isWorkday: false },
+      ];
       const DEFAULT_STATE = {
         cycleStart: "",
         records: [],
@@ -243,7 +250,7 @@
       const state = loadState();
       const currencyFormatter = new Intl.NumberFormat("ru-RU", {
         style: "currency",
-        currency: "RUB",
+        currency: CURRENCY_CODE,
         maximumFractionDigits: 0,
       });
       const numberFormatter = new Intl.NumberFormat("ru-RU", {
@@ -504,16 +511,9 @@
 
       function getShiftInfo(dateString) {
         const cycleStart = state.cycleStart || getTodayIsoDate();
-        const labels = [
-          { label: "Рабочая смена · день 1", isWorkday: true },
-          { label: "Рабочая смена · день 2", isWorkday: true },
-          { label: "Выходной · день 1", isWorkday: false },
-          { label: "Выходной · день 2", isWorkday: false },
-        ];
-
         const diffDays = toUtcDayNumber(dateString) - toUtcDayNumber(cycleStart);
         const normalizedIndex = ((diffDays % 4) + 4) % 4;
-        return labels[normalizedIndex];
+        return SHIFT_LABELS[normalizedIndex];
       }
 
       function loadState() {
@@ -601,7 +601,7 @@
         }
 
         const [year, month, day] = parts.map(Number);
-        if (![year, month, day].every(Number.isFinite)) {
+        if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
           return null;
         }
 
