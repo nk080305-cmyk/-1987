@@ -232,11 +232,21 @@
     <script>
       const STORAGE_KEY = "gazelle-accounting-v1";
       const MS_PER_DAY = 86400000;
+      const NUMERIC_FIELDS = ["income", "expense", "mileage", "fuelLiters", "fuelCost"];
       const DEFAULT_STATE = {
         cycleStart: new Date().toISOString().slice(0, 10),
         records: [],
       };
-      let fallbackIdCounter = 0;
+      const generateId = (() => {
+        let fallbackIdCounter = 0;
+        return () => {
+          if (window.crypto && typeof window.crypto.randomUUID === "function") {
+            return window.crypto.randomUUID();
+          }
+          fallbackIdCounter += 1;
+          return `${Date.now()}-${fallbackIdCounter}-${Math.random().toString(16).slice(2, 10)}`;
+        };
+      })();
 
       const state = loadState();
       const currencyFormatter = new Intl.NumberFormat("ru-RU", {
@@ -292,7 +302,7 @@
           entryForm.reset();
           entryDateInput.value = new Date().toISOString().slice(0, 10);
           entryForm.elements.driver.value = record.driver;
-          ["income", "expense", "mileage", "fuelLiters", "fuelCost"].forEach((field) => {
+          NUMERIC_FIELDS.forEach((field) => {
             entryForm.elements[field].value = 0;
           });
           render();
@@ -308,9 +318,12 @@
           return;
         }
 
-        state.records = state.records.filter((record) => record.id !== button.dataset.deleteId);
-        saveState();
-        render();
+        const recordIndex = state.records.findIndex((record) => record.id === button.dataset.deleteId);
+        if (recordIndex >= 0) {
+          state.records.splice(recordIndex, 1);
+          saveState();
+          render();
+        }
       }
 
       function render() {
@@ -492,8 +505,6 @@
       }
 
       function getShiftInfo(dateString) {
-        const cycleStart = new Date(`${state.cycleStart}T00:00:00`);
-        const targetDate = new Date(`${dateString}T00:00:00`);
         const labels = [
           { label: "Рабочая смена · день 1", isWorkday: true },
           { label: "Рабочая смена · день 2", isWorkday: true },
@@ -501,7 +512,7 @@
           { label: "Выходной · день 2", isWorkday: false },
         ];
 
-        const diffDays = Math.floor((targetDate - cycleStart) / MS_PER_DAY);
+        const diffDays = toUtcDayNumber(dateString) - toUtcDayNumber(state.cycleStart);
         const normalizedIndex = ((diffDays % 4) + 4) % 4;
         return labels[normalizedIndex];
       }
@@ -558,12 +569,9 @@
           .replaceAll("'", "&#039;");
       }
 
-      function generateId() {
-        if (window.crypto && typeof window.crypto.randomUUID === "function") {
-          return window.crypto.randomUUID();
-        }
-        fallbackIdCounter += 1;
-        return `${Date.now()}-${performance.now().toString(16)}-${fallbackIdCounter}-${Math.random().toString(16).slice(2, 10)}`;
+      function toUtcDayNumber(dateString) {
+        const [year, month, day] = dateString.split("-").map(Number);
+        return Math.floor(Date.UTC(year, month - 1, day) / MS_PER_DAY);
       }
     </script>
   </body>
