@@ -234,7 +234,7 @@
       const MS_PER_DAY = 86400000;
       const NUMERIC_FIELDS = ["income", "expense", "mileage", "fuelLiters", "fuelCost"];
       const DEFAULT_STATE = {
-        cycleStart: new Date().toISOString().slice(0, 10),
+        cycleStart: "",
         records: [],
       };
       const generateId = (() => {
@@ -267,15 +267,15 @@
       const exportButton = document.getElementById("exportButton");
       const recordsContainer = document.getElementById("records");
 
-      cycleStartInput.value = state.cycleStart;
-      entryDateInput.value = new Date().toISOString().slice(0, 10);
+      cycleStartInput.value = state.cycleStart || getTodayIsoDate();
+      entryDateInput.value = getTodayIsoDate();
 
       bindEvents();
       render();
 
       function bindEvents() {
         saveScheduleButton.addEventListener("click", () => {
-          state.cycleStart = cycleStartInput.value || DEFAULT_STATE.cycleStart;
+          state.cycleStart = cycleStartInput.value || getTodayIsoDate();
           saveState();
           render();
         });
@@ -299,8 +299,7 @@
 
           state.records.unshift(record);
           saveState();
-          entryForm.reset();
-          entryDateInput.value = new Date().toISOString().slice(0, 10);
+          entryDateInput.value = getTodayIsoDate();
           entryForm.elements.driver.value = record.driver;
           NUMERIC_FIELDS.forEach((field) => {
             entryForm.elements[field].value = 0;
@@ -333,12 +332,15 @@
       }
 
       function renderShiftBadges() {
-        const todayInfo = getShiftInfo(new Date().toISOString().slice(0, 10));
+        const todayInfo = getShiftInfo(getTodayIsoDate());
         todayShift.textContent = todayInfo.label;
 
-        const entryInfo = getShiftInfo(entryDateInput.value || new Date().toISOString().slice(0, 10));
+        const entryInfo = getShiftInfo(entryDateInput.value || getTodayIsoDate());
+        const entryShiftClasses = entryInfo.isWorkday
+          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+          : "border-amber-500/40 bg-amber-500/10 text-amber-200";
         entryShiftBadge.textContent = entryInfo.label;
-        entryShiftBadge.className = `rounded-2xl border px-4 py-2 text-sm font-semibold ${entryInfo.isWorkday ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200" : "border-amber-500/40 bg-amber-500/10 text-amber-200"}`;
+        entryShiftBadge.className = `rounded-2xl border px-4 py-2 text-sm font-semibold ${entryShiftClasses}`;
       }
 
       function renderAnalytics() {
@@ -393,16 +395,19 @@
           .map((record) => {
             const shiftInfo = getShiftInfo(record.date);
             const profit = record.income - record.expense - record.fuelCost;
+            const driverBadgeClass = record.driver === "owner" ? "bg-sky-500/15 text-sky-200" : "bg-fuchsia-500/15 text-fuchsia-200";
+            const shiftBadgeClass = shiftInfo.isWorkday ? "bg-emerald-500/15 text-emerald-200" : "bg-amber-500/15 text-amber-200";
+            const profitClass = profit >= 0 ? "text-emerald-300" : "text-rose-300";
             return `
               <article class="rounded-3xl border border-slate-800 bg-slate-950 p-4">
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div class="space-y-3">
                     <div class="flex flex-wrap items-center gap-2">
                       <h3 class="text-lg font-bold text-slate-50">${formatDate(record.date)}</h3>
-                      <span class="rounded-full px-3 py-1 text-xs font-semibold ${record.driver === "owner" ? "bg-sky-500/15 text-sky-200" : "bg-fuchsia-500/15 text-fuchsia-200"}">
+                      <span class="rounded-full px-3 py-1 text-xs font-semibold ${driverBadgeClass}">
                         ${record.driver === "owner" ? "Владелец" : "Наемный"}
                       </span>
-                      <span class="rounded-full px-3 py-1 text-xs font-semibold ${shiftInfo.isWorkday ? "bg-emerald-500/15 text-emerald-200" : "bg-amber-500/15 text-amber-200"}">
+                      <span class="rounded-full px-3 py-1 text-xs font-semibold ${shiftBadgeClass}">
                         ${shiftInfo.label}
                       </span>
                     </div>
@@ -411,7 +416,7 @@
                       <p>Расход: <span class="font-semibold text-slate-100">${currencyFormatter.format(record.expense)}</span></p>
                       <p>Пробег: <span class="font-semibold text-slate-100">${numberFormatter.format(record.mileage)} км</span></p>
                       <p>Бензин: <span class="font-semibold text-slate-100">${numberFormatter.format(record.fuelLiters)} л / ${currencyFormatter.format(record.fuelCost)}</span></p>
-                      <p class="sm:col-span-2">Чистая прибыль: <span class="font-semibold ${profit >= 0 ? "text-emerald-300" : "text-rose-300"}">${currencyFormatter.format(profit)}</span></p>
+                      <p class="sm:col-span-2">Чистая прибыль: <span class="font-semibold ${profitClass}">${currencyFormatter.format(profit)}</span></p>
                     </div>
                   </div>
                   <button
@@ -505,6 +510,7 @@
       }
 
       function getShiftInfo(dateString) {
+        const cycleStart = state.cycleStart || getTodayIsoDate();
         const labels = [
           { label: "Рабочая смена · день 1", isWorkday: true },
           { label: "Рабочая смена · день 2", isWorkday: true },
@@ -512,7 +518,7 @@
           { label: "Выходной · день 2", isWorkday: false },
         ];
 
-        const diffDays = toUtcDayNumber(dateString) - toUtcDayNumber(state.cycleStart);
+        const diffDays = toUtcDayNumber(dateString) - toUtcDayNumber(cycleStart);
         const normalizedIndex = ((diffDays % 4) + 4) % 4;
         return labels[normalizedIndex];
       }
@@ -541,11 +547,13 @@
       }
 
       function formatDate(value) {
+        const [year, month, day] = value.split("-").map(Number);
         return new Intl.DateTimeFormat("ru-RU", {
+          timeZone: "UTC",
           day: "2-digit",
           month: "2-digit",
           year: "numeric",
-        }).format(new Date(`${value}T00:00:00`));
+        }).format(new Date(Date.UTC(year, month - 1, day)));
       }
 
       function pluralize(count, forms) {
@@ -570,8 +578,19 @@
       }
 
       function toUtcDayNumber(dateString) {
-        const [year, month, day] = dateString.split("-").map(Number);
+        const parts = String(dateString).split("-");
+        if (parts.length !== 3) {
+          return toUtcDayNumber(getTodayIsoDate());
+        }
+        const [year, month, day] = parts.map(Number);
+        if (![year, month, day].every(Number.isFinite)) {
+          return toUtcDayNumber(getTodayIsoDate());
+        }
         return Math.floor(Date.UTC(year, month - 1, day) / MS_PER_DAY);
+      }
+
+      function getTodayIsoDate() {
+        return new Date().toISOString().slice(0, 10);
       }
     </script>
   </body>
