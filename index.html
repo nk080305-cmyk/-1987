@@ -17,7 +17,6 @@
         },
       };
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   </head>
   <body class="bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100 min-h-screen">
     <main class="max-w-3xl mx-auto p-4 sm:p-6 space-y-5">
@@ -135,6 +134,8 @@
       const STORAGE_KEY = "gazelleEntries";
       const THEME_KEY = "gazelleTheme";
       const SHIFT_START = new Date("2026-01-01");
+      const SHIFT_CYCLE_DAYS = 4;
+      const WORK_DAYS = 2;
       const HIRE_DRIVER_SHARE = 0.4;
 
       const refs = {
@@ -183,7 +184,7 @@
         const currentDate = new Date(dateString);
         const oneDay = 24 * 60 * 60 * 1000;
         const dayDiff = Math.floor((currentDate - SHIFT_START) / oneDay);
-        const inWorkBlock = ((dayDiff % 4) + 4) % 4 < 2;
+        const inWorkBlock = ((dayDiff % SHIFT_CYCLE_DAYS) + SHIFT_CYCLE_DAYS) % SHIFT_CYCLE_DAYS < WORK_DAYS;
         return inWorkBlock ? "Рабочая смена" : "Выходной";
       }
 
@@ -219,7 +220,7 @@
       }
 
       function render() {
-        const entries = getEntries().sort((a, b) => (a.date < b.date ? 1 : -1));
+        const entries = getEntries().sort((a, b) => new Date(b.date) - new Date(a.date));
         refs.entriesBody.innerHTML = entries
           .map(
             (e) => `
@@ -266,20 +267,28 @@
 
       refs.exportBtn.addEventListener("click", () => {
         const entries = getEntries();
-        const exportRows = entries.map((e) => ({
-          Дата: e.date,
-          Водитель: e.driverType === "owner" ? "Владелец" : "Наемный",
-          Смена: e.shift,
-          Доход: asNumber(e.income),
-          "Расход (прочее)": asNumber(e.expense),
-          Километраж: asNumber(e.mileage),
-          "Бензин (л)": asNumber(e.fuelLiters),
-          "Бензин (₽)": asNumber(e.fuelRubles),
-        }));
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(exportRows);
-        XLSX.utils.book_append_sheet(wb, ws, "Учет");
-        XLSX.writeFile(wb, "gazelle-accounting.xlsx");
+        const headers = ["Дата", "Водитель", "Смена", "Доход", "Расход (прочее)", "Километраж", "Бензин (л)", "Бензин (₽)"];
+        const rows = entries.map((e) => [
+          e.date,
+          e.driverType === "owner" ? "Владелец" : "Наемный",
+          e.shift || getShiftInfo(e.date),
+          asNumber(e.income),
+          asNumber(e.expense),
+          asNumber(e.mileage),
+          asNumber(e.fuelLiters),
+          asNumber(e.fuelRubles),
+        ]);
+        const csv = [headers, ...rows]
+          .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(";"))
+          .join("\n");
+
+        const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "gazelle-accounting.csv";
+        a.click();
+        URL.revokeObjectURL(url);
       });
 
       refs.themeToggle.addEventListener("click", () => {
