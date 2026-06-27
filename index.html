@@ -231,7 +231,7 @@
 
     <script>
       const STORAGE_KEY = "gazelle-accounting-v1";
-      const MS_PER_DAY = 86400000;
+      const MS_PER_DAY = 24 * 60 * 60 * 1000;
       const NUMERIC_FIELDS = ["income", "expense", "mileage", "fuelLiters", "fuelCost"];
       const DEFAULT_STATE = {
         cycleStart: "",
@@ -243,8 +243,14 @@
           if (window.crypto && typeof window.crypto.randomUUID === "function") {
             return window.crypto.randomUUID();
           }
+          if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+            const values = new Uint32Array(2);
+            window.crypto.getRandomValues(values);
+            fallbackIdCounter += 1;
+            return `${Date.now()}-${fallbackIdCounter}-${values[0].toString(16)}${values[1].toString(16)}`;
+          }
           fallbackIdCounter += 1;
-          return `${Date.now()}-${fallbackIdCounter}-${Math.random().toString(16).slice(2, 10)}`;
+          return `${Date.now()}-${fallbackIdCounter}`;
         };
       })();
 
@@ -299,11 +305,9 @@
 
           state.records.unshift(record);
           saveState();
+          entryForm.reset();
           entryDateInput.value = getTodayIsoDate();
           entryForm.elements.driver.value = record.driver;
-          NUMERIC_FIELDS.forEach((field) => {
-            entryForm.elements[field].value = 0;
-          });
           render();
         });
 
@@ -395,6 +399,9 @@
           .map((record) => {
             const shiftInfo = getShiftInfo(record.date);
             const profit = record.income - record.expense - record.fuelCost;
+            const formattedDate = escapeHtml(formatDate(record.date));
+            const driverLabel = escapeHtml(record.driver === "owner" ? "Владелец" : "Наемный");
+            const shiftLabel = escapeHtml(shiftInfo.label);
             const driverBadgeClass = record.driver === "owner" ? "bg-sky-500/15 text-sky-200" : "bg-fuchsia-500/15 text-fuchsia-200";
             const shiftBadgeClass = shiftInfo.isWorkday ? "bg-emerald-500/15 text-emerald-200" : "bg-amber-500/15 text-amber-200";
             const profitClass = profit >= 0 ? "text-emerald-300" : "text-rose-300";
@@ -403,12 +410,12 @@
                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div class="space-y-3">
                     <div class="flex flex-wrap items-center gap-2">
-                      <h3 class="text-lg font-bold text-slate-50">${formatDate(record.date)}</h3>
+                      <h3 class="text-lg font-bold text-slate-50">${formattedDate}</h3>
                       <span class="rounded-full px-3 py-1 text-xs font-semibold ${driverBadgeClass}">
-                        ${record.driver === "owner" ? "Владелец" : "Наемный"}
+                        ${driverLabel}
                       </span>
                       <span class="rounded-full px-3 py-1 text-xs font-semibold ${shiftBadgeClass}">
-                        ${shiftInfo.label}
+                        ${shiftLabel}
                       </span>
                     </div>
                     <div class="grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
@@ -580,17 +587,22 @@
       function toUtcDayNumber(dateString) {
         const parts = String(dateString).split("-");
         if (parts.length !== 3) {
-          return toUtcDayNumber(getTodayIsoDate());
+          return getTodayUtcDayNumber();
         }
         const [year, month, day] = parts.map(Number);
         if (![year, month, day].every(Number.isFinite)) {
-          return toUtcDayNumber(getTodayIsoDate());
+          return getTodayUtcDayNumber();
         }
         return Math.floor(Date.UTC(year, month - 1, day) / MS_PER_DAY);
       }
 
       function getTodayIsoDate() {
         return new Date().toISOString().slice(0, 10);
+      }
+
+      function getTodayUtcDayNumber() {
+        const today = new Date();
+        return Math.floor(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) / MS_PER_DAY);
       }
     </script>
   </body>
