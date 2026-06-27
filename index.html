@@ -232,7 +232,6 @@
     <script>
       const STORAGE_KEY = "gazelle-accounting-v1";
       const MS_PER_DAY = 24 * 60 * 60 * 1000;
-      const NUMERIC_FIELDS = ["income", "expense", "mileage", "fuelLiters", "fuelCost"];
       const DEFAULT_STATE = {
         cycleStart: "",
         records: [],
@@ -554,7 +553,14 @@
       }
 
       function formatDate(value) {
-        const [year, month, day] = value.split("-").map(Number);
+        const parts = String(value).split("-");
+        if (parts.length !== 3) {
+          return escapeHtml(String(value));
+        }
+        const [year, month, day] = parts.map(Number);
+        if (![year, month, day].every(Number.isFinite)) {
+          return escapeHtml(String(value));
+        }
         return new Intl.DateTimeFormat("ru-RU", {
           timeZone: "UTC",
           day: "2-digit",
@@ -581,7 +587,7 @@
           .replaceAll("<", "&lt;")
           .replaceAll(">", "&gt;")
           .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#039;");
+          .replaceAll("'", "&#x27;");
       }
 
       function toUtcDayNumber(dateString) {
